@@ -372,12 +372,18 @@ const Passenger: React.FC = () => {
       
       isPlaybackProcessingRef.current = true;
       try {
+        console.log(`👤 [PASSENGER] Отправка команды управления плеером:`, { 
+          username, 
+          playing: newPlaying, 
+          isPlayerActive: shouldActivatePlayer ? true : isPlayerActive 
+        });
         await controlPlayback({
           username,
           playing: newPlaying,
           isPlayerActive: shouldActivatePlayer ? true : isPlayerActive,
           accessCode
         }).unwrap();
+        console.log(`👤 [PASSENGER] Команда успешно отправлена на сервер`);
       } catch (err: any) {
         if (err && typeof err === 'object' && 'status' in err) {
           if (err.status === 401) {

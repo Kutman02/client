@@ -39,6 +39,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   useEffect(() => {
     if (!isPlayerReady() || !isPlayerActive) {
+      console.log("🎬 [VideoPlayer] Плеер не готов или не активен:", { isPlayerReady: isPlayerReady(), isPlayerActive });
       return;
     }
 
@@ -46,13 +47,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const state = playerRef.current?.getPlayerState();
       // Проверяем, что state валиден (не null/undefined)
       if (state === null || state === undefined) {
+        console.log("🎬 [VideoPlayer] Состояние плеера не валидно:", state);
         return;
       }
 
+      console.log("🎬 [VideoPlayer] Управление плеером:", { playing, currentState: state, isPlayerActive });
+      
       if (playing && state !== 1) {
+        console.log("🎬 [VideoPlayer] Запускаем видео");
         playerRef.current?.playVideo();
       }
       if (!playing && state !== 2) {
+        console.log("🎬 [VideoPlayer] Ставим на паузу");
         playerRef.current?.pauseVideo();
       }
     } catch (err) {

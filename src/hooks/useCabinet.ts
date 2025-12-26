@@ -127,6 +127,7 @@ export const useCabinet = (
     // Используем once для отправки при подключении, если еще не подключен
     const joinRoom = () => {
       if (socket.connected) {
+        console.log(`🚗 [DRIVER] Присоединение к комнате username:${username}`);
         socket.emit("join_username", username, "driver");
       }
     };
@@ -165,6 +166,7 @@ export const useCabinet = (
     // Синхронизация состояния плеера через Redux
     // Не вызываем handleRefresh, так как состояние плеера не влияет на плейлист
     socket.on("playback_state_changed", (data) => {
+      console.log("🎮 [DRIVER] Получено событие playback_state_changed:", data);
       // Уведомляем о внешнем обновлении ПЕРЕД обновлением состояния, чтобы предотвратить отправку запроса
       if (onExternalUpdate) {
         onExternalUpdate();
@@ -173,6 +175,7 @@ export const useCabinet = (
         playing: data.playing,
         isPlayerActive: data.isPlayerActive
       }));
+      console.log("🎮 [DRIVER] Redux состояние обновлено:", { playing: data.playing, isPlayerActive: data.isPlayerActive });
     });
 
     socket.on("track_changed", (data) => {

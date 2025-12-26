@@ -240,11 +240,6 @@ const Cabinet: React.FC = () => {
       socket.once("connect", joinRoom);
     }
     
-    return () => {
-      // Cleanup: удаляем обработчик, если компонент размонтирован до подключения
-      socket.off("connect", joinRoom);
-    };
-    
     // Throttle для отправки прогресса (максимум 2 раза в секунду)
     let lastSent = 0;
     const interval = setInterval(() => {
@@ -261,7 +256,11 @@ const Cabinet: React.FC = () => {
       }
     }, 500); // Проверяем каждые 500ms
 
-    return () => clearInterval(interval);
+    return () => {
+      // Cleanup: удаляем обработчик и интервал
+      socket.off("connect", joinRoom);
+      clearInterval(interval);
+    };
   }, [username, isPlayerActive]);
 
   // Слушаем события от пассажиров (seek, track changes)
