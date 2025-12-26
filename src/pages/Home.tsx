@@ -201,7 +201,7 @@ const Home: React.FC = () => {
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 py-8 mt-20">
         <div className="max-w-7xl mx-auto px-6 text-center text-white/40 text-sm">
-          <p>© 2024 Driver's Music from KutSoft. Все права защищены.</p>
+          <p>© 2026 Driver's Music from KutSoft. Все права защищены.</p>
         </div>
       </footer>
 
