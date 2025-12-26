@@ -82,12 +82,13 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
         }
       }
       
-      // Логируем полную информацию об ошибке
-      console.error("❌ Ошибка загрузки пассажиров:", {
-        message: errorMessage,
-        error: error,
-        username: username
-      });
+      // Логируем полную информацию об ошибке (раздельно для лучшей читаемости)
+      console.error("❌ Ошибка загрузки пассажиров:");
+      console.error("  Message:", errorMessage);
+      console.error("  Username:", username);
+      console.error("  Error Status:", error && 'status' in error ? error.status : 'unknown');
+      console.error("  Error Data:", error && 'data' in error ? error.data : 'no data');
+      console.error("  Full Error:", error);
     }
   }, [isError, error, username]);
 

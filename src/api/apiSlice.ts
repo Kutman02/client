@@ -82,17 +82,22 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
       errorMessage = 'Внутренняя ошибка сервера (500)';
     }
     
-    // Детальное логирование ошибки
-    console.error('❌ API Error:', {
-      status: errorStatus,
-      message: errorMessage,
-      data: parsedErrorData,
-      url: url,
-      fullUrl: fullUrl,
-      originalData: typeof errorData === 'string' && errorData.length > 500 
-        ? errorData.substring(0, 500) + '... (truncated)'
-        : errorData
-    });
+    // Детальное логирование ошибки (раздельно для лучшей читаемости в консоли)
+    console.error('❌ API Error:');
+    console.error('  Status:', errorStatus);
+    console.error('  Message:', errorMessage);
+    console.error('  URL:', url);
+    console.error('  Full URL:', fullUrl);
+    console.error('  Error Data:', parsedErrorData);
+    if (typeof errorData === 'string') {
+      const preview = errorData.length > 500 ? errorData.substring(0, 500) + '... (truncated)' : errorData;
+      console.error('  Original Data (preview):', preview);
+      if (errorData.length > 500) {
+        console.error('  Original Data (full length):', errorData.length, 'characters');
+      }
+    } else {
+      console.error('  Original Data:', errorData);
+    }
     
     // Дополнительные предупреждения для специфических ошибок
     if (errorStatus === 404 || errorStatus === 'PARSING_ERROR') {
