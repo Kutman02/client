@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { FaHeart } from "react-icons/fa";
 import { socket } from "../api/socket";
@@ -150,6 +150,11 @@ const Passenger: React.FC = () => {
   const [changeTrack] = useChangeTrackMutation();
   const [seekVideo] = useSeekVideoMutation();
 
+  // Refs для debounce операций управления плеером
+  const playbackDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const trackChangeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isPlaybackProcessingRef = useRef(false);
+
   // Socket.IO синхронизация по username
   useEffect(() => {
     if (!username || !isVerified) return;
@@ -236,6 +241,18 @@ const Passenger: React.FC = () => {
     };
   }, [username, isVerified, refetch, dispatch, isUninitialized, accessCode]);
 
+  // Cleanup debounce таймеров при размонтировании
+  useEffect(() => {
+    return () => {
+      if (playbackDebounceRef.current) {
+        clearTimeout(playbackDebounceRef.current);
+      }
+      if (trackChangeDebounceRef.current) {
+        clearTimeout(trackChangeDebounceRef.current);
+      }
+    };
+  }, []);
+
   // Функция удаления самого старого трека (первого в плейлисте)
   const handleDeleteOldestTrack = async (): Promise<void> => {
     if (playlist.length > 0 && accessCode && username) {
@@ -310,63 +327,107 @@ const Passenger: React.FC = () => {
 
   const handleTogglePlay = async (): Promise<void> => {
     if (!accessCode || !username) return;
-    try {
-      const newPlaying = !playing;
-      // Если плеер не активен, активируем его при нажатии на "Играть"
-      const shouldActivatePlayer = !isPlayerActive && newPlaying;
-      
-      await controlPlayback({
-        username,
-        playing: newPlaying,
-        isPlayerActive: shouldActivatePlayer ? true : isPlayerActive,
-        accessCode
-      }).unwrap();
-      
-      // Обновляем локальное состояние
-      if (shouldActivatePlayer) {
-        dispatch(updatePlayerState({ isPlayerActive: true, playing: newPlaying }));
-      }
-    } catch (err: any) {
-      if (err && typeof err === 'object' && 'status' in err) {
-        if (err.status === 401) {
-          dispatch(clearAccessCode());
-        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
-          console.warn("⚠️ Ошибка сети при управлении воспроизведением. Повторная попытка...");
-          // Обновляем локальное состояние даже при ошибке сети для отзывчивости UI
-          dispatch(updatePlayerState({ playing: !playing }));
-        }
-      }
+    
+    // Блокируем множественные нажатия
+    if (isPlaybackProcessingRef.current) {
+      return;
     }
+    
+    // Очищаем предыдущий debounce
+    if (playbackDebounceRef.current) {
+      clearTimeout(playbackDebounceRef.current);
+    }
+    
+    // Обновляем локальное состояние сразу для отзывчивости UI
+    const newPlaying = !playing;
+    const shouldActivatePlayer = !isPlayerActive && newPlaying;
+    if (shouldActivatePlayer) {
+      dispatch(updatePlayerState({ isPlayerActive: true, playing: newPlaying }));
+    } else {
+      dispatch(updatePlayerState({ playing: newPlaying }));
+    }
+    
+    // Debounce отправки на сервер (300ms)
+    playbackDebounceRef.current = setTimeout(async () => {
+      if (isPlaybackProcessingRef.current) return;
+      
+      isPlaybackProcessingRef.current = true;
+      try {
+        await controlPlayback({
+          username,
+          playing: newPlaying,
+          isPlayerActive: shouldActivatePlayer ? true : isPlayerActive,
+          accessCode
+        }).unwrap();
+      } catch (err: any) {
+        if (err && typeof err === 'object' && 'status' in err) {
+          if (err.status === 401) {
+            dispatch(clearAccessCode());
+          } else if (err.status === 429) {
+            // Rate limit - это нормально при частых нажатиях, просто игнорируем
+            console.warn("⚠️ Rate limit при управлении воспроизведением. Запрос проигнорирован.");
+          } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+            console.warn("⚠️ Ошибка сети при управлении воспроизведением. Повторная попытка...");
+          }
+        }
+      } finally {
+        isPlaybackProcessingRef.current = false;
+      }
+    }, 300);
   };
 
   const handleNext = async (): Promise<void> => {
     if (!accessCode || !username) return;
-    try {
-      await changeTrack({ username, direction: 'next', accessCode }).unwrap();
-    } catch (err: any) {
-      if (err && typeof err === 'object' && 'status' in err) {
-        if (err.status === 401) {
-          dispatch(clearAccessCode());
-        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
-          console.warn("⚠️ Ошибка сети при переключении трека. Повторная попытка...");
+    
+    // Очищаем предыдущий debounce
+    if (trackChangeDebounceRef.current) {
+      clearTimeout(trackChangeDebounceRef.current);
+    }
+    
+    // Debounce отправки на сервер (400ms)
+    trackChangeDebounceRef.current = setTimeout(async () => {
+      try {
+        await changeTrack({ username, direction: 'next', accessCode }).unwrap();
+      } catch (err: any) {
+        if (err && typeof err === 'object' && 'status' in err) {
+          if (err.status === 401) {
+            dispatch(clearAccessCode());
+          } else if (err.status === 429) {
+            // Rate limit - это нормально при частых нажатиях, просто игнорируем
+            console.warn("⚠️ Rate limit при переключении трека. Запрос проигнорирован.");
+          } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+            console.warn("⚠️ Ошибка сети при переключении трека. Повторная попытка...");
+          }
         }
       }
-    }
+    }, 400);
   };
 
   const handlePrevious = async (): Promise<void> => {
     if (!accessCode || !username) return;
-    try {
-      await changeTrack({ username, direction: 'previous', accessCode }).unwrap();
-    } catch (err: any) {
-      if (err && typeof err === 'object' && 'status' in err) {
-        if (err.status === 401) {
-          dispatch(clearAccessCode());
-        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
-          console.warn("⚠️ Ошибка сети при переключении трека. Повторная попытка...");
+    
+    // Очищаем предыдущий debounce
+    if (trackChangeDebounceRef.current) {
+      clearTimeout(trackChangeDebounceRef.current);
+    }
+    
+    // Debounce отправки на сервер (400ms)
+    trackChangeDebounceRef.current = setTimeout(async () => {
+      try {
+        await changeTrack({ username, direction: 'previous', accessCode }).unwrap();
+      } catch (err: any) {
+        if (err && typeof err === 'object' && 'status' in err) {
+          if (err.status === 401) {
+            dispatch(clearAccessCode());
+          } else if (err.status === 429) {
+            // Rate limit - это нормально при частых нажатиях, просто игнорируем
+            console.warn("⚠️ Rate limit при переключении трека. Запрос проигнорирован.");
+          } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+            console.warn("⚠️ Ошибка сети при переключении трека. Повторная попытка...");
+          }
         }
       }
-    }
+    }, 400);
   };
 
   const handleSeek = async (percent: number): Promise<void> => {
