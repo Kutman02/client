@@ -8,7 +8,7 @@ import type {
 } from '../types';
 
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: 'http://localhost:5001/api/session',
+  baseUrl: 'https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session',
   prepareHeaders: (headers, { getState }) => {
     // Получаем токен из Redux store
     const state = getState() as { auth: { token: string | null } };
@@ -46,9 +46,9 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
       data: errorData,
       url: typeof args === 'string' ? args : args?.url,
       fullUrl: typeof args === 'string' 
-        ? `http://localhost:5001/api/session${args}`
+        ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args}`
         : args?.url 
-        ? `http://localhost:5001/api/session${args.url}`
+        ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args.url}`
         : 'unknown'
     });
     
