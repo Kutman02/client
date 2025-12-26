@@ -18,8 +18,8 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
   const [shouldPoll, setShouldPoll] = useState<boolean>(true);
   
   const { data: passengersData, isLoading, isError, error, refetch, isUninitialized } = useGetConnectedPassengersQuery(username || '', {
-    skip: !username,
-    pollingInterval: shouldPoll ? 10000 : 0, // Отключаем polling при ошибках PARSING_ERROR
+    skip: !username || !shouldPoll, // Отключаем запрос полностью при критических ошибках
+    pollingInterval: shouldPoll ? 10000 : 0,
   });
 
   const { data: accessCodeData } = useGetAccessCodeQuery(username || '', {
@@ -89,7 +89,7 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
       }
       
       // Отключаем polling при PARSING_ERROR, чтобы избежать бесконечных повторных запросов
-      if (isParsingError) {
+      if (isParsingError && shouldPoll) {
         setShouldPoll(false);
         console.warn("⚠️ Polling отключен из-за PARSING_ERROR. Маршрут не существует или сервер возвращает HTML.");
       }
@@ -118,11 +118,11 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
         console.error("Full Error:", error);
       }
       console.groupEnd();
-    } else if (!isError && shouldPoll === false) {
+    } else if (!isError && !shouldPoll) {
       // Включаем polling обратно, если ошибка исчезла
       setShouldPoll(true);
     }
-  }, [isError, error, username, shouldPoll]);
+  }, [isError, error, username]);
 
   const handleKickClick = (passengerId: string): void => {
     setSelectedPassengerId(passengerId);
@@ -269,17 +269,17 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 shrink-0">
-                {passenger.isOnline && (
-                  <button
-                    onClick={() => handleKickClick(passenger.id)}
-                    className="p-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-lg transition-all active:scale-95 border border-red-500/20 hover:border-red-500/40"
-                    title="Выгнать пассажира"
-                  >
-                    <FaTimes size={14} />
-                  </button>
-                )}
-                  </div>
+                  {passenger.isOnline && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleKickClick(passenger.id)}
+                        className="p-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-lg transition-all active:scale-95 border border-red-500/20 hover:border-red-500/40"
+                        title="Выгнать пассажира"
+                      >
+                        <FaTimes size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

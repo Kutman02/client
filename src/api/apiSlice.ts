@@ -4,11 +4,12 @@ import type {
   PlaylistData,
   AccessCodeData,
   PassengersData,
-  User,
 } from '../types';
 
+const API_BASE_URL = 'https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session';
+
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: 'https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session',
+  baseUrl: API_BASE_URL,
   prepareHeaders: (headers, { getState }) => {
     // Заголовок для обхода предупреждения ngrok
     headers.set('ngrok-skip-browser-warning', 'true');
@@ -42,9 +43,9 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
     // Определяем URL для логирования
     const url = typeof args === 'string' ? args : args?.url;
     const fullUrl = typeof args === 'string' 
-      ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args}`
+      ? `${API_BASE_URL}${args}`
       : args?.url 
-      ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args.url}`
+      ? `${API_BASE_URL}${args.url}`
       : 'unknown';
     
     // Обработка PARSING_ERROR (когда сервер возвращает HTML вместо JSON)

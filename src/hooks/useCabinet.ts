@@ -68,7 +68,8 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
         isPlayerActive: playlistData.isPlayerActive ?? false
       }));
     }
-  }, [playlistData?.currentIndex, playlistData?.playing, playlistData?.isPlayerActive, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlistData?.currentIndex, playlistData?.playing, playlistData?.isPlayerActive]); // dispatch стабилен, не нужен в зависимостях
 
   useEffect(() => {
     if (!username) return;
@@ -117,7 +118,7 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
       socket.off("playback_state_changed");
       socket.off("track_changed");
     };
-  }, [username, refetch, dispatch, isUninitialized, accessCodeData?.accessCode]);
+  }, [username, refetch, dispatch, isUninitialized]); // accessCode не влияет на socket подключение
 
   const handleRemoveTrack = async (idx: number): Promise<void> => {
     const track = playlist[idx];

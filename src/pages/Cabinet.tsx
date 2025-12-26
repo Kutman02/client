@@ -178,7 +178,7 @@ const Cabinet: React.FC = () => {
     }, 300); // Уменьшена задержка для более быстрой реакции
 
     return () => clearTimeout(timeoutId);
-  }, [playing, isPlayerActive, username, accessCodeData?.accessCode, controlPlayback]);
+  }, [playing, isPlayerActive, username, accessCodeData?.accessCode]); // controlPlayback стабилен, не нужен в зависимостях
 
   // Отправляем прогресс видео пассажирам через socket
   useEffect(() => {
