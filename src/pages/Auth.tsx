@@ -31,10 +31,11 @@ const Auth: React.FC = () => {
         // Выполняем логин через RTK Query (.unwrap() позволяет обработать результат как обычный промис)
         const userData = await login({ email: form.email, password: form.password }).unwrap();
         
-        console.log("🔐 Данные от сервера при логине:");
-        console.log("  Username:", userData.username);
-        console.log("  Has Token:", !!userData.token);
-        console.log("  Full Data:", userData);
+        console.group("🔐 Данные от сервера при логине");
+        console.log("Username:", userData.username);
+        console.log("Has Token:", !!userData.token);
+        console.log("Full Data (JSON):", JSON.stringify(userData, null, 2));
+        console.groupEnd();
         
         if (userData.token && userData.username) {
           // Проверяем, что username не является email
@@ -50,9 +51,10 @@ const Auth: React.FC = () => {
             token: userData.token 
           }));
           
-          console.log("✅ Сохранено в Redux:");
-          console.log("  Username:", userData.username);
-          console.log("  Has Token:", !!userData.token);
+          console.group("✅ Сохранено в Redux");
+          console.log("Username:", userData.username);
+          console.log("Has Token:", !!userData.token);
+          console.groupEnd();
           navigate("/cabinet");
         } else {
           alert("Ошибка: не получены данные пользователя");

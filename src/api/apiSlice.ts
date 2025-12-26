@@ -83,21 +83,31 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
     }
     
     // Детальное логирование ошибки (раздельно для лучшей читаемости в консоли)
-    console.error('❌ API Error:');
-    console.error('  Status:', errorStatus);
-    console.error('  Message:', errorMessage);
-    console.error('  URL:', url);
-    console.error('  Full URL:', fullUrl);
-    console.error('  Error Data:', parsedErrorData);
+    console.group('❌ API Error');
+    console.error('Status:', errorStatus);
+    console.error('Message:', errorMessage);
+    console.error('URL:', url);
+    console.error('Full URL:', fullUrl);
+    
+    // Логируем данные ошибки с JSON.stringify для видимости
+    if (typeof parsedErrorData === 'object' && parsedErrorData !== null) {
+      console.error('Error Data (JSON):', JSON.stringify(parsedErrorData, null, 2));
+    } else {
+      console.error('Error Data:', parsedErrorData);
+    }
+    
     if (typeof errorData === 'string') {
       const preview = errorData.length > 500 ? errorData.substring(0, 500) + '... (truncated)' : errorData;
-      console.error('  Original Data (preview):', preview);
+      console.error('Original Data (preview):', preview);
       if (errorData.length > 500) {
-        console.error('  Original Data (full length):', errorData.length, 'characters');
+        console.error('Original Data (full length):', errorData.length, 'characters');
       }
+    } else if (typeof errorData === 'object' && errorData !== null) {
+      console.error('Original Data (JSON):', JSON.stringify(errorData, null, 2));
     } else {
-      console.error('  Original Data:', errorData);
+      console.error('Original Data:', errorData);
     }
+    console.groupEnd();
     
     // Дополнительные предупреждения для специфических ошибок
     if (errorStatus === 404 || errorStatus === 'PARSING_ERROR') {
