@@ -10,6 +10,9 @@ import type {
 const baseQuery = fetchBaseQuery({ 
   baseUrl: 'https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session',
   prepareHeaders: (headers, { getState }) => {
+    // Заголовок для обхода предупреждения ngrok
+    headers.set('ngrok-skip-browser-warning', 'true');
+    
     // Получаем токен из Redux store
     const state = getState() as { auth: { token: string | null } };
     const token = state.auth?.token || localStorage.getItem('token');
