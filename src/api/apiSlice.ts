@@ -10,6 +10,8 @@ const API_BASE_URL = 'https://longheadedly-unprevailing-quinn.ngrok-free.dev/api
 
 const baseQuery = fetchBaseQuery({ 
   baseUrl: API_BASE_URL,
+  // Таймаут для запросов - 30 секунд (увеличено для медленного интернета)
+  timeout: 30000,
   prepareHeaders: (headers, { getState }) => {
     // Заголовок для обхода предупреждения ngrok
     headers.set('ngrok-skip-browser-warning', 'true');
@@ -26,14 +28,70 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
-// Обертка для baseQuery с обработкой ошибок
+// Retry логика для запросов при ошибках сети
+const retryWithBackoff = async (
+  fn: () => Promise<any>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<any> => {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Не повторяем для определенных ошибок
+      if (
+        error?.status === 400 || // Bad Request
+        error?.status === 401 || // Unauthorized
+        error?.status === 403 || // Forbidden
+        error?.status === 404 || // Not Found
+        error?.status === 422    // Unprocessable Entity
+      ) {
+        throw error;
+      }
+      
+      // Если это последняя попытка, выбрасываем ошибку
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Экспоненциальная задержка: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.log(`🔄 Повторная попытка запроса через ${delay}ms (попытка ${attempt + 1}/${maxRetries + 1})`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+};
+
+// Обертка для baseQuery с обработкой ошибок и retry логикой
 const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any) => {
   // Проверяем, если в URL есть пустые параметры, возвращаем ошибку
   if (typeof args === 'string' && (args.includes('/driver//') || args.includes('//'))) {
     return { error: { status: 400, data: { error: 'Invalid username parameter' } } };
   }
   
-  const result = await baseQuery(args, api, extraOptions);
+  // Проверяем онлайн статус
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return { 
+      error: { 
+        status: 'NETWORK_ERROR', 
+        data: { error: 'Нет подключения к интернету. Проверьте соединение.' } 
+      } 
+    };
+  }
+  
+  // Выполняем запрос с retry логикой
+  const result = await retryWithBackoff(
+    () => baseQuery(args, api, extraOptions),
+    3, // Максимум 3 повторные попытки
+    1000 // Начальная задержка 1 секунда
+  );
   
   // Логируем ошибки для отладки
   if (result.error) {
@@ -142,6 +200,11 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithErrorHandling,
+  // Настройки для стабильной работы при плохом соединении
+  keepUnusedDataFor: 60, // Храним неиспользуемые данные 60 секунд для быстрого доступа
+  refetchOnMountOrArgChange: 30, // Обновляем данные если они старше 30 секунд
+  refetchOnFocus: true, // Обновляем данные при фокусе на вкладке
+  refetchOnReconnect: true, // Обновляем данные при восстановлении соединения
   tagTypes: ['Playlist', 'Session', 'Passengers'],
   endpoints: (builder) => ({
     // Получение плейлиста по username + accessCode

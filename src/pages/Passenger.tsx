@@ -326,9 +326,15 @@ const Passenger: React.FC = () => {
       if (shouldActivatePlayer) {
         dispatch(updatePlayerState({ isPlayerActive: true, playing: newPlaying }));
       }
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'status' in err && err.status === 401) {
-        dispatch(clearAccessCode());
+    } catch (err: any) {
+      if (err && typeof err === 'object' && 'status' in err) {
+        if (err.status === 401) {
+          dispatch(clearAccessCode());
+        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Ошибка сети при управлении воспроизведением. Повторная попытка...");
+          // Обновляем локальное состояние даже при ошибке сети для отзывчивости UI
+          dispatch(updatePlayerState({ playing: !playing }));
+        }
       }
     }
   };
@@ -337,9 +343,13 @@ const Passenger: React.FC = () => {
     if (!accessCode || !username) return;
     try {
       await changeTrack({ username, direction: 'next', accessCode }).unwrap();
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'status' in err && err.status === 401) {
-        dispatch(clearAccessCode());
+    } catch (err: any) {
+      if (err && typeof err === 'object' && 'status' in err) {
+        if (err.status === 401) {
+          dispatch(clearAccessCode());
+        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Ошибка сети при переключении трека. Повторная попытка...");
+        }
       }
     }
   };
@@ -348,9 +358,13 @@ const Passenger: React.FC = () => {
     if (!accessCode || !username) return;
     try {
       await changeTrack({ username, direction: 'previous', accessCode }).unwrap();
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'status' in err && err.status === 401) {
-        dispatch(clearAccessCode());
+    } catch (err: any) {
+      if (err && typeof err === 'object' && 'status' in err) {
+        if (err.status === 401) {
+          dispatch(clearAccessCode());
+        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Ошибка сети при переключении трека. Повторная попытка...");
+        }
       }
     }
   };
@@ -371,9 +385,13 @@ const Passenger: React.FC = () => {
     // Отправляем на сервер для синхронизации
     try {
       await seekVideo({ username, percent, accessCode }).unwrap();
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'status' in err && err.status === 401) {
-        dispatch(clearAccessCode());
+    } catch (err: any) {
+      if (err && typeof err === 'object' && 'status' in err) {
+        if (err.status === 401) {
+          dispatch(clearAccessCode());
+        } else if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Ошибка сети при перемотке. Повторная попытка...");
+        }
       }
     }
   };

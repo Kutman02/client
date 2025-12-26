@@ -9,6 +9,12 @@ import {
 } from "../api/apiSlice";
 import { updatePlayerState } from "../redux/slices/playerSlice";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { 
+  getPlaylistFromCache, 
+  getPlayerStateFromCache,
+  savePlaylistToCache,
+  savePlayerStateToCache
+} from "../utils/cache";
 import type { Track } from "../types";
 
 interface UseCabinetReturn {
@@ -43,7 +49,7 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
   });
 
   // Получаем плейлист по username + accessCode
-  const { data: playlistData, refetch, isLoading, isUninitialized } = useGetPlaylistQuery(
+  const { data: playlistData, refetch, isLoading, isUninitialized, isError, error } = useGetPlaylistQuery(
     { 
       username: username || '', 
       accessCode: accessCodeData?.accessCode || '' 
@@ -57,7 +63,34 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
   const [moveTrack] = useMoveTrackMutation();
   const [changeTrack] = useChangeTrackMutation();
 
-  const playlist = playlistData?.playlist || [];
+  // Используем кеш при ошибках сети
+  const [cachedPlaylist, setCachedPlaylist] = useState<Track[]>([]);
+  
+  // Загружаем из кеша при монтировании, если данных еще нет
+  useEffect(() => {
+    if (username && !playlistData && !isLoading) {
+      const cached = getPlaylistFromCache(username, true);
+      if (cached && cached.length > 0) {
+        setCachedPlaylist(cached);
+        console.log('📦 Загружен плейлист из кеша при старте');
+      }
+    }
+  }, [username]); // Только при монтировании
+  
+  useEffect(() => {
+    if (username && isError) {
+      // Пытаемся загрузить из кеша при ошибке
+      const cached = getPlaylistFromCache(username, true);
+      if (cached && cached.length > 0) {
+        setCachedPlaylist(cached);
+        console.log('📦 Используем плейлист из кеша из-за ошибки сети');
+      }
+    } else if (playlistData?.playlist) {
+      setCachedPlaylist([]);
+    }
+  }, [username, isError, playlistData]);
+
+  const playlist = playlistData?.playlist || cachedPlaylist || [];
 
   // Синхронизируем состояние из плейлиста с Redux
   useEffect(() => {
@@ -67,9 +100,16 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
         playing: playlistData.playing ?? false,
         isPlayerActive: playlistData.isPlayerActive ?? false
       }));
+    } else if (isError && username) {
+      // При ошибке загружаем состояние из кеша
+      const cachedState = getPlayerStateFromCache(username, true);
+      if (cachedState) {
+        dispatch(updatePlayerState(cachedState));
+        console.log('📦 Используем состояние плеера из кеша из-за ошибки сети');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlistData?.currentIndex, playlistData?.playing, playlistData?.isPlayerActive]); // dispatch стабилен, не нужен в зависимостях
+  }, [playlistData?.currentIndex, playlistData?.playing, playlistData?.isPlayerActive, isError, username]); // dispatch стабилен, не нужен в зависимостях
 
   useEffect(() => {
     if (!username) return;
@@ -85,6 +125,14 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
           // Игнорируем ошибки refetch, если запрос еще не был запущен
           if (!err.message?.includes('has not been started')) {
             console.error("❌ Ошибка обновления плейлиста:", err);
+            // При ошибке сети пытаемся использовать кеш
+            if (err?.status === 'FETCH_ERROR' || err?.status === 'NETWORK_ERROR') {
+              const cached = getPlaylistFromCache(username, true);
+              if (cached && cached.length > 0) {
+                setCachedPlaylist(cached);
+                console.log('📦 Используем плейлист из кеша после ошибки обновления');
+              }
+            }
           }
         });
       }
@@ -130,8 +178,12 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
           trackId: String(trackId),
           accessCode: accessCodeData.accessCode
         }).unwrap();
-      } catch (err) {
+      } catch (err: any) {
         console.error("❌ Ошибка при удалении трека:", err);
+        // При ошибке сети показываем предупреждение, но не блокируем UI
+        if (err?.status === 'FETCH_ERROR' || err?.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Операция удаления будет выполнена при восстановлении соединения");
+        }
       }
     }
   };
@@ -145,8 +197,12 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
           toIndex,
           accessCode: accessCodeData.accessCode
         }).unwrap();
-      } catch (err) {
+      } catch (err: any) {
         console.error("❌ Ошибка при перемещении трека:", err);
+        // При ошибке сети показываем предупреждение, но не блокируем UI
+        if (err?.status === 'FETCH_ERROR' || err?.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Операция перемещения будет выполнена при восстановлении соединения");
+        }
       }
     }
   };
@@ -155,8 +211,12 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
     if (username && accessCodeData?.accessCode && currentIndex < playlist.length - 1) {
       try {
         await changeTrack({ username, direction: 'next', accessCode: accessCodeData.accessCode }).unwrap();
-      } catch (err) {
+      } catch (err: any) {
         console.error("❌ Ошибка при переключении трека:", err);
+        // При ошибке сети показываем предупреждение, но не блокируем UI
+        if (err?.status === 'FETCH_ERROR' || err?.status === 'NETWORK_ERROR') {
+          console.warn("⚠️ Операция переключения будет выполнена при восстановлении соединения");
+        }
       }
     }
   };

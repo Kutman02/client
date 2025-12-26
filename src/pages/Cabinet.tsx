@@ -165,9 +165,14 @@ const Cabinet: React.FC = () => {
           isPlayerActive,
           accessCode: accessCodeData.accessCode
         }).unwrap();
-      } catch (err) {
-        if (err && typeof err === 'object' && 'status' in err && err.status !== 404 && err.status !== 'FETCH_ERROR') {
-          console.error("❌ Ошибка при отправке состояния воспроизведения:", err);
+      } catch (err: any) {
+        // Игнорируем ошибки сети - они будут обработаны автоматически через retry
+        if (err && typeof err === 'object' && 'status' in err) {
+          if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+            console.warn("⚠️ Ошибка сети при отправке состояния воспроизведения. Повторная попытка...");
+          } else if (err.status !== 404) {
+            console.error("❌ Ошибка при отправке состояния воспроизведения:", err);
+          }
         }
       } finally {
         // Разблокируем через небольшую задержку для предотвращения спама
@@ -292,8 +297,15 @@ const Cabinet: React.FC = () => {
     if (username && accessCodeData?.accessCode) {
       try {
         await seekVideo({ username, percent: val, accessCode: accessCodeData.accessCode }).unwrap();
-      } catch (err) {
-        console.error("❌ Ошибка при отправке seek на сервер:", err);
+      } catch (err: any) {
+        // Игнорируем ошибки сети - они будут обработаны автоматически через retry
+        if (err && typeof err === 'object' && 'status' in err) {
+          if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+            console.warn("⚠️ Ошибка сети при отправке seek. Повторная попытка...");
+          } else {
+            console.error("❌ Ошибка при отправке seek на сервер:", err);
+          }
+        }
       }
     }
   };
@@ -446,8 +458,15 @@ const Cabinet: React.FC = () => {
                                     accessCode: accessCodeData.accessCode 
                                   }).unwrap();
                                   dispatch(setVideoProgress({ percent: 0, currentTime: 0, duration: 0 }));
-                                } catch (err) {
-                                  console.error("Ошибка при выборе трека:", err);
+                                } catch (err: any) {
+                                  // Игнорируем ошибки сети - они будут обработаны автоматически через retry
+                                  if (err && typeof err === 'object' && 'status' in err) {
+                                    if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+                                      console.warn("⚠️ Ошибка сети при выборе трека. Повторная попытка...");
+                                    } else {
+                                      console.error("Ошибка при выборе трека:", err);
+                                    }
+                                  }
                                 }
                               }
                             }}
@@ -497,8 +516,15 @@ const Cabinet: React.FC = () => {
                                     accessCode: accessCodeData.accessCode 
                                   }).unwrap();
                                   dispatch(setVideoProgress({ percent: 0, currentTime: 0, duration: 0 }));
-                                } catch (err) {
-                                  console.error("Ошибка при выборе трека:", err);
+                                } catch (err: any) {
+                                  // Игнорируем ошибки сети - они будут обработаны автоматически через retry
+                                  if (err && typeof err === 'object' && 'status' in err) {
+                                    if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
+                                      console.warn("⚠️ Ошибка сети при выборе трека. Повторная попытка...");
+                                    } else {
+                                      console.error("Ошибка при выборе трека:", err);
+                                    }
+                                  }
                                 }
                               }
                             }}
