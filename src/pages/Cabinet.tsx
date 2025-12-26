@@ -70,6 +70,8 @@ const Cabinet: React.FC = () => {
   const isPlaybackProcessingRef = useRef(false);
   // Флаг для предотвращения отправки состояния обратно на сервер при получении от пассажира
   const isExternalUpdateRef = useRef(false);
+  // Храним последнее состояние, которое было отправлено на сервер, чтобы не отправлять дубликаты
+  const lastSentStateRef = useRef<{ playing: boolean; isPlayerActive: boolean } | null>(null);
 
   // 3. Интеграция с вашим хуком управления плеером
   const {
@@ -158,13 +160,24 @@ const Cabinet: React.FC = () => {
       return;
     }
     
-    // Пропускаем отправку, если изменение пришло от пассажира
-    if (isExternalUpdateRef.current) {
-      isExternalUpdateRef.current = false;
+    // Проверяем, изменилось ли состояние по сравнению с последним отправленным
+    const currentState = { playing, isPlayerActive };
+    if (lastSentStateRef.current && 
+        lastSentStateRef.current.playing === currentState.playing &&
+        lastSentStateRef.current.isPlayerActive === currentState.isPlayerActive) {
+      // Состояние не изменилось, не отправляем
       return;
     }
     
     const timeoutId = setTimeout(async () => {
+      // Проверяем флаг ВНУТРИ timeout, чтобы не отправлять запрос, если изменение пришло от пассажира
+      if (isExternalUpdateRef.current) {
+        isExternalUpdateRef.current = false;
+        // Обновляем последнее отправленное состояние, чтобы не отправлять дубликат
+        lastSentStateRef.current = { playing, isPlayerActive };
+        return;
+      }
+      
       if (isPlaybackProcessingRef.current) {
         return; // Пропускаем если уже обрабатывается запрос
       }
@@ -177,11 +190,17 @@ const Cabinet: React.FC = () => {
           isPlayerActive,
           accessCode: accessCodeData.accessCode
         }).unwrap();
+        // Успешно отправлено - сохраняем состояние
+        lastSentStateRef.current = { playing, isPlayerActive };
       } catch (err: any) {
-        // Игнорируем ошибки сети - они будут обработаны автоматически через retry
+        // Игнорируем ошибки сети и дублирующие запросы (429) - они нормальны
         if (err && typeof err === 'object' && 'status' in err) {
           if (err.status === 'FETCH_ERROR' || err.status === 'NETWORK_ERROR') {
             console.warn("⚠️ Ошибка сети при отправке состояния воспроизведения. Повторная попытка...");
+          } else if (err.status === 429) {
+            // Дублирующий запрос - это нормально, когда пассажир управляет плеером
+            // Обновляем последнее отправленное состояние, чтобы не отправлять дубликат
+            lastSentStateRef.current = { playing, isPlayerActive };
           } else if (err.status !== 404) {
             console.error("❌ Ошибка при отправке состояния воспроизведения:", err);
           }
@@ -192,7 +211,7 @@ const Cabinet: React.FC = () => {
           isPlaybackProcessingRef.current = false;
         }, 100);
       }
-    }, 300); // Уменьшена задержка для более быстрой реакции
+    }, 600); // Увеличена задержка для предотвращения дублирующих запросов (больше чем REQUEST_CACHE_TTL на сервере)
 
     return () => clearTimeout(timeoutId);
   }, [playing, isPlayerActive, username, accessCodeData?.accessCode]); // controlPlayback стабилен, не нужен в зависимостях
