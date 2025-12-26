@@ -33,7 +33,10 @@ interface UseCabinetReturn {
   isLoading: boolean;
 }
 
-export const useCabinet = (username: string | null): UseCabinetReturn => {
+export const useCabinet = (
+  username: string | null,
+  onExternalUpdate?: () => void
+): UseCabinetReturn => {
   const dispatch = useAppDispatch();
   
   // Используем Redux для состояния плеера
@@ -145,6 +148,10 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
     // Синхронизация состояния плеера через Redux
     // Не вызываем handleRefresh, так как состояние плеера не влияет на плейлист
     socket.on("playback_state_changed", (data) => {
+      // Уведомляем о внешнем обновлении, чтобы не отправлять состояние обратно на сервер
+      if (onExternalUpdate) {
+        onExternalUpdate();
+      }
       dispatch(updatePlayerState({
         playing: data.playing,
         isPlayerActive: data.isPlayerActive
@@ -152,6 +159,10 @@ export const useCabinet = (username: string | null): UseCabinetReturn => {
     });
 
     socket.on("track_changed", (data) => {
+      // Уведомляем о внешнем обновлении, чтобы не отправлять состояние обратно на сервер
+      if (onExternalUpdate) {
+        onExternalUpdate();
+      }
       dispatch(updatePlayerState({
         currentIndex: data.currentIndex,
         playing: data.playing

@@ -68,6 +68,8 @@ const Cabinet: React.FC = () => {
 
   // Флаг для блокировки множественных нажатий на play/pause
   const isPlaybackProcessingRef = useRef(false);
+  // Флаг для предотвращения отправки состояния обратно на сервер при получении от пассажира
+  const isExternalUpdateRef = useRef(false);
 
   // 3. Интеграция с вашим хуком управления плеером
   const {
@@ -84,7 +86,10 @@ const Cabinet: React.FC = () => {
     handleRemoveTrack,
     handleMoveTrack,
     isLoading: isPlaylistLoading,
-  } = useCabinet(username);
+  } = useCabinet(username, () => {
+    // Callback для уведомления о внешнем обновлении от пассажира
+    isExternalUpdateRef.current = true;
+  });
 
   const displayPlaylist = playlist;
 
@@ -146,9 +151,16 @@ const Cabinet: React.FC = () => {
   }, [displayPlaylist.length, isPlayerActive, setIsPlayerActive, setPlaying]);
 
   // Отправляем состояние воспроизведения на сервер (с debounce)
+  // НЕ отправляем, если изменение пришло от пассажира через socket
   useEffect(() => {
     if (!username || !accessCodeData?.accessCode) {
       // Не логируем предупреждение, если это начальная загрузка
+      return;
+    }
+    
+    // Пропускаем отправку, если изменение пришло от пассажира
+    if (isExternalUpdateRef.current) {
+      isExternalUpdateRef.current = false;
       return;
     }
     
@@ -214,7 +226,8 @@ const Cabinet: React.FC = () => {
     return () => clearInterval(interval);
   }, [username, isPlayerActive]);
 
-  // Слушаем события от пассажиров (seek, playback, track changes)
+  // Слушаем события от пассажиров (seek, track changes)
+  // playback_state_changed обрабатывается в useCabinet.ts, чтобы избежать дублирования
   useEffect(() => {
     if (!username) return;
 
@@ -233,18 +246,9 @@ const Cabinet: React.FC = () => {
       setTimeout(() => setSeekTime(null), 100);
     };
 
-    // Обработка изменений состояния воспроизведения от пассажиров
-    const handlePlaybackStateChanged = (data: { playing: boolean; isPlayerActive: boolean }) => {
-      if (data.playing !== undefined) {
-        setPlaying(data.playing);
-      }
-      if (data.isPlayerActive !== undefined) {
-        setIsPlayerActive(data.isPlayerActive);
-      }
-    };
-
     // Обработка переключения трека от пассажиров
     const handleTrackChanged = (data: { currentIndex: number; playing: boolean }) => {
+      isExternalUpdateRef.current = true; // Помечаем как внешнее обновление
       if (data.currentIndex !== undefined) {
         setCurrentIndex(data.currentIndex);
       }
@@ -256,15 +260,13 @@ const Cabinet: React.FC = () => {
     };
 
     socket.on("video_seeked", handleVideoSeeked);
-    socket.on("playback_state_changed", handlePlaybackStateChanged);
     socket.on("track_changed", handleTrackChanged);
 
     return () => {
       socket.off("video_seeked", handleVideoSeeked);
-      socket.off("playback_state_changed", handlePlaybackStateChanged);
       socket.off("track_changed", handleTrackChanged);
     };
-  }, [username, setPlaying, setIsPlayerActive, setCurrentIndex, dispatch]);
+  }, [username, setPlaying, setCurrentIndex, dispatch, videoProgress.duration]);
 
   if (!username) {
     return (
