@@ -30,7 +30,7 @@ const baseQuery = fetchBaseQuery({
 
 // Retry логика для запросов при ошибках сети
 const retryWithBackoff = async (
-  fn: () => Promise<any>,
+  fn: () => any,
   maxRetries: number = 3,
   baseDelay: number = 1000
 ): Promise<any> => {
@@ -38,17 +38,58 @@ const retryWithBackoff = async (
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn();
+      const result = await Promise.resolve(fn());
+      
+      // Проверяем, есть ли ошибка в результате
+      if (result && typeof result === 'object' && 'error' in result) {
+        const error = result.error;
+        
+        // Не повторяем для определенных ошибок
+        if (
+          error?.status === 400 || // Bad Request
+          error?.status === 401 || // Unauthorized
+          error?.status === 403 || // Forbidden
+          error?.status === 404 || // Not Found
+          error?.status === 422    // Unprocessable Entity
+        ) {
+          return result;
+        }
+        
+        // Если это ошибка сети, повторяем попытку
+        if (
+          error?.status === 'FETCH_ERROR' || 
+          error?.status === 'NETWORK_ERROR' ||
+          error?.status === 'TIMEOUT_ERROR' ||
+          (typeof error?.status === 'number' && error.status >= 500)
+        ) {
+          lastError = result;
+          
+          // Если это последняя попытка, возвращаем ошибку
+          if (attempt === maxRetries) {
+            return result;
+          }
+          
+          // Экспоненциальная задержка: 1s, 2s, 4s
+          const delay = baseDelay * Math.pow(2, attempt);
+          console.log(`🔄 Повторная попытка запроса через ${delay}ms (попытка ${attempt + 1}/${maxRetries + 1})`);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
+      
+      // Если нет ошибки, возвращаем результат
+      return result;
     } catch (error: any) {
       lastError = error;
       
       // Не повторяем для определенных ошибок
       if (
-        error?.status === 400 || // Bad Request
-        error?.status === 401 || // Unauthorized
-        error?.status === 403 || // Forbidden
-        error?.status === 404 || // Not Found
-        error?.status === 422    // Unprocessable Entity
+        error?.status === 400 ||
+        error?.status === 401 ||
+        error?.status === 403 ||
+        error?.status === 404 ||
+        error?.status === 422
       ) {
         throw error;
       }
@@ -66,7 +107,7 @@ const retryWithBackoff = async (
     }
   }
   
-  throw lastError;
+  return lastError;
 };
 
 // Обертка для baseQuery с обработкой ошибок и retry логикой
