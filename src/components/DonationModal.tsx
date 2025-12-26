@@ -13,7 +13,7 @@ const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose }) => {
   const [copiedCard, setCopiedCard] = useState(false);
   const mbankNumberDisplay = "+996 774 522 640";
   const mbankNumberCopy = "774522640"; // Без кода страны, так как в МБанке он уже есть
-  const cardNumber = "4177 4901 9760 9011";
+  const cardNumber = "4177490197609011";
 
   const handleCopy = (text: string, type: 'mbank' | 'card') => {
     navigator.clipboard.writeText(text);
