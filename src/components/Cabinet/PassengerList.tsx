@@ -15,10 +15,11 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
   const [selectedPassengerId, setSelectedPassengerId] = useState<string | null>(null);
   const [isKicking, setIsKicking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [shouldPoll, setShouldPoll] = useState<boolean>(true);
   
   const { data: passengersData, isLoading, isError, error, refetch, isUninitialized } = useGetConnectedPassengersQuery(username || '', {
     skip: !username,
-    pollingInterval: 10000, // Увеличили интервал до 10 секунд (fallback)
+    pollingInterval: shouldPoll ? 10000 : 0, // Отключаем polling при ошибках PARSING_ERROR
   });
 
   const { data: accessCodeData } = useGetAccessCodeQuery(username || '', {
@@ -55,17 +56,21 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
     };
   }, [username, refetch, isUninitialized]);
 
-  // Обработка ошибок
+  // Обработка ошибок и отключение polling при критических ошибках
   React.useEffect(() => {
     if (isError && username) {
       // Логируем ошибку только если username есть (не логируем ошибки от пустых запросов)
       let errorMessage = 'Неизвестная ошибка';
+      let isParsingError = false;
       
       if (error && 'data' in error) {
         const errorData = error.data;
         
-        // Обработка объекта ошибки
+        // Проверяем, является ли это PARSING_ERROR (HTML ответ)
         if (typeof errorData === 'object' && errorData !== null) {
+          if ('originalStatus' in errorData && errorData.originalStatus === 'PARSING_ERROR') {
+            isParsingError = true;
+          }
           if ('error' in errorData) {
             errorMessage = String(errorData.error);
           } else if ('message' in errorData) {
@@ -76,10 +81,17 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
         else if (typeof errorData === 'string') {
           if (errorData.trim().startsWith('<!DOCTYPE')) {
             errorMessage = 'Сервер вернул HTML вместо JSON. Проверьте, что маршрут существует.';
+            isParsingError = true;
           } else {
             errorMessage = errorData;
           }
         }
+      }
+      
+      // Отключаем polling при PARSING_ERROR, чтобы избежать бесконечных повторных запросов
+      if (isParsingError) {
+        setShouldPoll(false);
+        console.warn("⚠️ Polling отключен из-за PARSING_ERROR. Маршрут не существует или сервер возвращает HTML.");
       }
       
       // Логируем полную информацию об ошибке (раздельно для лучшей читаемости)
@@ -87,6 +99,7 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
       console.error("Message:", errorMessage);
       console.error("Username:", username);
       console.error("Error Status:", error && 'status' in error ? error.status : 'unknown');
+      console.error("Is Parsing Error:", isParsingError);
       
       if (error && 'data' in error) {
         const errorData = error.data;
@@ -105,8 +118,11 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
         console.error("Full Error:", error);
       }
       console.groupEnd();
+    } else if (!isError && shouldPoll === false) {
+      // Включаем polling обратно, если ошибка исчезла
+      setShouldPoll(true);
     }
-  }, [isError, error, username]);
+  }, [isError, error, username, shouldPoll]);
 
   const handleKickClick = (passengerId: string): void => {
     setSelectedPassengerId(passengerId);
