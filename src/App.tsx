@@ -4,13 +4,11 @@ import Auth from "./pages/Auth";
 import Cabinet from "./pages/Cabinet";
 import Passenger from "./pages/Passenger";
 import Thanks from "./pages/Thanks";
-import { ConnectionStatus } from "./components/ConnectionStatus";
 
 function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50 font-sans">
-        <ConnectionStatus />
         <Routes>
           {/* Главная страница — landing page о сервисе */}
           <Route path="/" element={<Home />} />
