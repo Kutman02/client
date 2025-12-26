@@ -285,7 +285,7 @@ export const apiSlice = createApi({
     }),
 
     kickPassenger: builder.mutation<
-      { success: boolean },
+      { success: boolean; message: string; passengerId: string; wasOnline: boolean },
       { username: string; passengerId: string; accessCode: string }
     >({
       query: ({ username, passengerId, accessCode }) => ({

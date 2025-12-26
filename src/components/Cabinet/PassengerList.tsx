@@ -47,12 +47,26 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
       }
     };
 
+    const handlePassengerKicked = (data: { passengerId: string; timestamp: Date; wasOnline?: boolean }) => {
+      // Обновляем список при выгоне пассажира
+      console.log('Пассажир выгнан:', data);
+      if (!isUninitialized) {
+        refetch().catch(err => {
+          if (!err.message?.includes('has not been started')) {
+            console.error("Ошибка обновления списка пассажиров:", err);
+          }
+        });
+      }
+    };
+
     socket.on("passenger_connected", handlePassengerUpdate);
     socket.on("passenger_disconnected", handlePassengerUpdate);
+    socket.on("passenger_kicked", handlePassengerKicked);
 
     return () => {
       socket.off("passenger_connected", handlePassengerUpdate);
       socket.off("passenger_disconnected", handlePassengerUpdate);
+      socket.off("passenger_kicked", handlePassengerKicked);
     };
   }, [username, refetch, isUninitialized]);
 
@@ -140,18 +154,27 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
     setErrorMessage(null);
 
     try {
-      await kickPassenger({
+      const result = await kickPassenger({
         username,
         passengerId: selectedPassengerId,
         accessCode: accessCodeData?.accessCode || '',
       }).unwrap();
       
-      // Успешно выгнали
+      // Успешно выгнали - показываем сообщение
+      console.log(result.message);
       setKickModalOpen(false);
       setSelectedPassengerId(null);
-    } catch (err) {
+      
+      // Обновляем список пассажиров
+      refetch().catch(err => {
+        if (!err.message?.includes('has not been started')) {
+          console.error("Ошибка обновления списка пассажиров:", err);
+        }
+      });
+    } catch (err: any) {
       console.error("Ошибка выгона пассажира:", err);
-      setErrorMessage("Не удалось выгнать пассажира. Попробуйте еще раз.");
+      const errorMessage = err?.data?.message || err?.data?.error || "Не удалось выгнать пассажира. Попробуйте еще раз.";
+      setErrorMessage(errorMessage);
     } finally {
       setIsKicking(false);
     }
@@ -168,7 +191,8 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
 
   const formatTime = (date?: Date | string): string => {
     if (!date) return "—";
-    const d = new Date(date);
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "—";
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const minutes = Math.floor(diff / 60000);
@@ -269,17 +293,15 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
                     </div>
                   </div>
                   
-                  {passenger.isOnline && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => handleKickClick(passenger.id)}
-                        className="p-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-lg transition-all active:scale-95 border border-red-500/20 hover:border-red-500/40"
-                        title="Выгнать пассажира"
-                      >
-                        <FaTimes size={14} />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleKickClick(passenger.id)}
+                      className="p-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-lg transition-all active:scale-95 border border-red-500/20 hover:border-red-500/40"
+                      title={passenger.isOnline ? "Выгнать пассажира" : "Удалить офлайн пассажира"}
+                    >
+                      <FaTimes size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -31,8 +31,8 @@ export interface AccessCodeData {
 export interface Passenger {
   id: string;
   isOnline: boolean;
-  lastSeen?: Date;
-  joinedAt?: Date;
+  lastSeen?: string; // ISO date string
+  joinedAt?: string; // ISO date string
 }
 
 export interface PassengersData {
@@ -88,6 +88,6 @@ export interface SocketEvents {
   video_progress_update: (data: VideoProgress) => void;
   passenger_connected: (data: { passengerId: string; timestamp: Date }) => void;
   passenger_disconnected: (data: { passengerId: string; timestamp: Date }) => void;
-  passenger_kicked: (data: { passengerId: string; timestamp: Date }) => void;
+  passenger_kicked: (data: { passengerId: string; timestamp: Date; wasOnline?: boolean }) => void;
 }
 
