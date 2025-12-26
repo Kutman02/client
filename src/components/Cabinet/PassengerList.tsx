@@ -34,7 +34,11 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
   useEffect(() => {
     if (!username) return;
 
-    if (!socket.connected) socket.connect();
+    // Проверяем состояние socket перед подключением
+    // socket.io автоматически переподключится, но мы можем ускорить процесс
+    if (socket.disconnected) {
+      socket.connect();
+    }
 
     const handlePassengerUpdate = () => {
       // Обновляем список при подключении/отключении пассажиров

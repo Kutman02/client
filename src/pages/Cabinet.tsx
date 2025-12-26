@@ -220,11 +220,30 @@ const Cabinet: React.FC = () => {
   useEffect(() => {
     if (!username || !isPlayerActive) return;
 
-    if (!socket.connected) {
+    // Проверяем состояние socket перед подключением
+    // socket.io автоматически переподключится, но мы можем ускорить процесс
+    if (socket.disconnected) {
       socket.connect();
-      // Убеждаемся, что водитель присоединился к комнате
-      socket.emit("join_username", username, "driver");
     }
+    
+    // Убеждаемся, что водитель присоединился к комнате
+    // Используем once для отправки при подключении, если еще не подключен
+    const joinRoom = () => {
+      if (socket.connected) {
+        socket.emit("join_username", username, "driver");
+      }
+    };
+    
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      socket.once("connect", joinRoom);
+    }
+    
+    return () => {
+      // Cleanup: удаляем обработчик, если компонент размонтирован до подключения
+      socket.off("connect", joinRoom);
+    };
     
     // Throttle для отправки прогресса (максимум 2 раза в секунду)
     let lastSent = 0;
@@ -250,7 +269,11 @@ const Cabinet: React.FC = () => {
   useEffect(() => {
     if (!username) return;
 
-    if (!socket.connected) socket.connect();
+    // Проверяем состояние socket перед подключением
+    // socket.io автоматически переподключится, но мы можем ускорить процесс
+    if (socket.disconnected) {
+      socket.connect();
+    }
 
     // Обработка seek от пассажиров
     const handleVideoSeeked = (data: { percent: number }) => {

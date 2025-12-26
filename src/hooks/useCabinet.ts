@@ -117,8 +117,25 @@ export const useCabinet = (
   useEffect(() => {
     if (!username) return;
 
-    if (!socket.connected) socket.connect();
-    socket.emit("join_username", username, "driver");
+    // Проверяем состояние socket перед подключением
+    // socket.io автоматически переподключится, но мы можем ускорить процесс
+    if (socket.disconnected) {
+      socket.connect();
+    }
+    
+    // Убеждаемся, что водитель присоединился к комнате
+    // Используем once для отправки при подключении, если еще не подключен
+    const joinRoom = () => {
+      if (socket.connected) {
+        socket.emit("join_username", username, "driver");
+      }
+    };
+    
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      socket.once("connect", joinRoom);
+    }
 
     // Когда приходит событие по сокету, мы просто просим RTK обновить данные с сервера
     const handleRefresh = () => {
@@ -176,6 +193,8 @@ export const useCabinet = (
       socket.off("track_moved", handleRefresh);
       socket.off("playback_state_changed");
       socket.off("track_changed");
+      // Cleanup: удаляем обработчик joinRoom, если компонент размонтирован до подключения
+      socket.off("connect", joinRoom);
     };
   }, [username, refetch, dispatch, isUninitialized]); // accessCode не влияет на socket подключение
 

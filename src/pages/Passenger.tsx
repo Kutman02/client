@@ -159,8 +159,25 @@ const Passenger: React.FC = () => {
   useEffect(() => {
     if (!username || !isVerified) return;
 
-    if (!socket.connected) socket.connect();
-    socket.emit("join_username", username, "passenger", passengerId);
+    // Проверяем состояние socket перед подключением
+    // socket.io автоматически переподключится, но мы можем ускорить процесс
+    if (socket.disconnected) {
+      socket.connect();
+    }
+    
+    // Убеждаемся, что пассажир присоединился к комнате
+    // Используем once для отправки при подключении, если еще не подключен
+    const joinRoom = () => {
+      if (socket.connected) {
+        socket.emit("join_username", username, "passenger", passengerId);
+      }
+    };
+    
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      socket.once("connect", joinRoom);
+    }
 
     const handleUpdate = () => {
       // Проверяем, что запрос был инициализирован перед вызовом refetch
@@ -238,6 +255,8 @@ const Passenger: React.FC = () => {
       socket.off("video_seeked");
       socket.off("video_progress_update");
       socket.off("passenger_kicked");
+      // Cleanup: удаляем обработчик joinRoom, если компонент размонтирован до подключения
+      socket.off("connect", joinRoom);
     };
   }, [username, isVerified, refetch, dispatch, isUninitialized, accessCode]);
 
