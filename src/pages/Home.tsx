@@ -53,7 +53,7 @@ const Home: React.FC = () => {
             <span className="text-white">для каждого пассажира</span>
           </h1>
           <p className="text-xl md:text-2xl text-white/60 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Driver's Music от KutSoft — инновационный сервис для водителей такси, позволяющий пассажирам выбирать музыку во время поездки
+            Driver's Music от KutSoft — инновационный сервис для водителей, позволяющий пассажирам выбирать музыку во время поездки
           </p>
           <button
             onClick={handleJoin}
