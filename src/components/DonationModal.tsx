@@ -53,10 +53,10 @@ const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose }) => {
             </div>
             <div>
               <h2 className="text-lg font-black text-white">
-                Поддержать проект
+                Поддержи проект!
               </h2>
               <p className="text-xs text-white/70">
-                Если нравится музыка — поддержите развитие
+              Ваша помощь ускоряет и улучшает приложение для всех!  
               </p>
             </div>
           </div>
