@@ -180,18 +180,33 @@ const Passenger: React.FC = () => {
     }
 
     const handleUpdate = () => {
+      console.log("🔄 [PASSENGER] Получено событие обновления плейлиста, обновляем данные...");
       // Проверяем, что запрос был инициализирован перед вызовом refetch
       if (!isUninitialized && username && isVerified && accessCode) {
+        console.log("🔄 [PASSENGER] Вызываем refetch для обновления плейлиста");
         refetch().catch(err => {
           // Игнорируем ошибки refetch, если запрос еще не был запущен
           if (!err.message?.includes('has not been started')) {
-            console.error("Ошибка обновления плейлиста:", err);
+            console.error("❌ [PASSENGER] Ошибка обновления плейлиста:", err);
           }
+        });
+      } else {
+        console.log("⚠️ [PASSENGER] Пропускаем refetch:", { 
+          isUninitialized, 
+          username, 
+          isVerified, 
+          hasAccessCode: !!accessCode 
         });
       }
     };
 
-    socket.on("track_added", handleUpdate);
+    // Обработчик для track_added с логированием
+    const handleTrackAdded = (data?: any) => {
+      console.log("➕ [PASSENGER] Получено событие track_added:", data);
+      handleUpdate();
+    };
+
+    socket.on("track_added", handleTrackAdded);
     socket.on("track_removed", handleUpdate);
     socket.on("track_moved", handleUpdate);
     socket.on("current_track_changed", handleUpdate);
@@ -246,7 +261,7 @@ const Passenger: React.FC = () => {
     });
 
     return () => {
-      socket.off("track_added", handleUpdate);
+      socket.off("track_added", handleTrackAdded);
       socket.off("track_removed", handleUpdate);
       socket.off("track_moved", handleUpdate);
       socket.off("current_track_changed", handleUpdate);

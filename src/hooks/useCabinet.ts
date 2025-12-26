@@ -140,8 +140,10 @@ export const useCabinet = (
 
     // Когда приходит событие по сокету, мы просто просим RTK обновить данные с сервера
     const handleRefresh = () => {
+      console.log("🔄 [DRIVER] Получено событие обновления плейлиста, обновляем данные...");
       // Проверяем, что запрос был инициализирован перед вызовом refetch
       if (!isUninitialized && username && accessCodeData?.accessCode) {
+        console.log("🔄 [DRIVER] Вызываем refetch для обновления плейлиста");
         refetch().catch(err => {
           // Игнорируем ошибки refetch, если запрос еще не был запущен
           if (!err.message?.includes('has not been started')) {
@@ -156,10 +158,22 @@ export const useCabinet = (
             }
           }
         });
+      } else {
+        console.log("⚠️ [DRIVER] Пропускаем refetch:", { 
+          isUninitialized, 
+          username, 
+          hasAccessCode: !!accessCodeData?.accessCode 
+        });
       }
     };
 
-    socket.on("track_added", handleRefresh);
+    // Обработчик для track_added с логированием
+    const handleTrackAdded = (data?: any) => {
+      console.log("➕ [DRIVER] Получено событие track_added:", data);
+      handleRefresh();
+    };
+
+    socket.on("track_added", handleTrackAdded);
     socket.on("track_removed", handleRefresh);
     socket.on("track_moved", handleRefresh);
     
@@ -191,7 +205,7 @@ export const useCabinet = (
     });
 
     return () => {
-      socket.off("track_added", handleRefresh);
+      socket.off("track_added", handleTrackAdded);
       socket.off("track_removed", handleRefresh);
       socket.off("track_moved", handleRefresh);
       socket.off("playback_state_changed");
@@ -199,7 +213,7 @@ export const useCabinet = (
       // Cleanup: удаляем обработчик joinRoom, если компонент размонтирован до подключения
       socket.off("connect", joinRoom);
     };
-  }, [username, refetch, dispatch, isUninitialized]); // accessCode не влияет на socket подключение
+  }, [username, refetch, dispatch, isUninitialized, accessCodeData?.accessCode]); // Добавлен accessCodeData?.accessCode для правильной работы handleRefresh
 
   const handleRemoveTrack = async (idx: number): Promise<void> => {
     const track = playlist[idx];
