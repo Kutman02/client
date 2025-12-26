@@ -59,10 +59,35 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
   React.useEffect(() => {
     if (isError && username) {
       // Логируем ошибку только если username есть (не логируем ошибки от пустых запросов)
-      const errorMessage = error && 'data' in error && typeof error.data === 'object' && error.data !== null && 'error' in error.data
-        ? String(error.data.error)
-        : 'Неизвестная ошибка';
-      console.error("❌ Ошибка загрузки пассажиров:", errorMessage);
+      let errorMessage = 'Неизвестная ошибка';
+      
+      if (error && 'data' in error) {
+        const errorData = error.data;
+        
+        // Обработка объекта ошибки
+        if (typeof errorData === 'object' && errorData !== null) {
+          if ('error' in errorData) {
+            errorMessage = String(errorData.error);
+          } else if ('message' in errorData) {
+            errorMessage = String(errorData.message);
+          }
+        } 
+        // Обработка строковой ошибки (HTML ответ)
+        else if (typeof errorData === 'string') {
+          if (errorData.trim().startsWith('<!DOCTYPE')) {
+            errorMessage = 'Сервер вернул HTML вместо JSON. Проверьте, что маршрут существует.';
+          } else {
+            errorMessage = errorData;
+          }
+        }
+      }
+      
+      // Логируем полную информацию об ошибке
+      console.error("❌ Ошибка загрузки пассажиров:", {
+        message: errorMessage,
+        error: error,
+        username: username
+      });
     }
   }, [isError, error, username]);
 
@@ -143,9 +168,33 @@ const PassengerList: React.FC<PassengerListProps> = ({ username }) => {
             <div className="text-center py-8">
               <div className="text-red-400 text-sm mb-2">Ошибка загрузки</div>
               <div className="text-white/30 text-xs">
-                {(error && 'data' in error && typeof error.data === 'object' && error.data !== null && 'error' in error.data)
-                  ? String(error.data.error)
-                  : "Не удалось загрузить список"}
+                {(() => {
+                  if (!error || !('data' in error)) {
+                    return "Не удалось загрузить список";
+                  }
+                  
+                  const errorData = error.data;
+                  
+                  // Обработка объекта ошибки
+                  if (typeof errorData === 'object' && errorData !== null) {
+                    if ('error' in errorData) {
+                      return String(errorData.error);
+                    }
+                    if ('message' in errorData) {
+                      return String(errorData.message);
+                    }
+                  }
+                  
+                  // Обработка строковой ошибки (HTML ответ)
+                  if (typeof errorData === 'string') {
+                    if (errorData.trim().startsWith('<!DOCTYPE')) {
+                      return "Сервер вернул HTML вместо JSON. Проверьте маршрут.";
+                    }
+                    return errorData;
+                  }
+                  
+                  return "Не удалось загрузить список";
+                })()}
               </div>
             </div>
           ) : isLoading ? (

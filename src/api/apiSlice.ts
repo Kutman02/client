@@ -34,30 +34,86 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
   // Логируем ошибки для отладки
   if (result.error) {
     const errorData = result.error.data;
-    const errorMessage = typeof errorData === 'object' && errorData !== null && 'error' in errorData
-      ? errorData.error
-      : result.error.status === 404
-      ? 'Маршрут не найден (404) - проверьте, что сервер запущен и перезапущен после изменений'
-      : 'Неизвестная ошибка';
+    const errorStatus = result.error.status;
     
+    // Определяем URL для логирования
+    const url = typeof args === 'string' ? args : args?.url;
+    const fullUrl = typeof args === 'string' 
+      ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args}`
+      : args?.url 
+      ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args.url}`
+      : 'unknown';
+    
+    // Обработка PARSING_ERROR (когда сервер возвращает HTML вместо JSON)
+    let errorMessage = 'Неизвестная ошибка';
+    let parsedErrorData = errorData;
+    
+    if (errorStatus === 'PARSING_ERROR' || (typeof errorData === 'string' && errorData.trim().startsWith('<!DOCTYPE'))) {
+      // Сервер вернул HTML вместо JSON
+      errorMessage = 'Сервер вернул HTML вместо JSON. Возможно, маршрут не существует или сервер вернул страницу ошибки.';
+      parsedErrorData = {
+        type: 'HTML_RESPONSE',
+        preview: typeof errorData === 'string' 
+          ? errorData.substring(0, 200) + (errorData.length > 200 ? '...' : '')
+          : errorData
+      };
+      
+      // Пытаемся извлечь информацию из HTML (например, заголовок страницы)
+      if (typeof errorData === 'string') {
+        const titleMatch = errorData.match(/<title[^>]*>([^<]+)<\/title>/i);
+        if (titleMatch) {
+          errorMessage = `Сервер вернул HTML страницу: "${titleMatch[1]}"`;
+        }
+      }
+    } else if (typeof errorData === 'object' && errorData !== null) {
+      // Стандартная обработка объекта ошибки
+      if ('error' in errorData) {
+        errorMessage = String(errorData.error);
+      } else if ('message' in errorData) {
+        errorMessage = String(errorData.message);
+      }
+    } else if (errorStatus === 404) {
+      errorMessage = 'Маршрут не найден (404) - проверьте, что сервер запущен и перезапущен после изменений';
+    } else if (errorStatus === 401) {
+      errorMessage = 'Не авторизован (401) - проверьте токен доступа';
+    } else if (errorStatus === 403) {
+      errorMessage = 'Доступ запрещен (403)';
+    } else if (errorStatus === 500) {
+      errorMessage = 'Внутренняя ошибка сервера (500)';
+    }
+    
+    // Детальное логирование ошибки
     console.error('❌ API Error:', {
-      status: result.error.status,
+      status: errorStatus,
       message: errorMessage,
-      data: errorData,
-      url: typeof args === 'string' ? args : args?.url,
-      fullUrl: typeof args === 'string' 
-        ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args}`
-        : args?.url 
-        ? `https://longheadedly-unprevailing-quinn.ngrok-free.dev/api/session${args.url}`
-        : 'unknown'
+      data: parsedErrorData,
+      url: url,
+      fullUrl: fullUrl,
+      originalData: typeof errorData === 'string' && errorData.length > 500 
+        ? errorData.substring(0, 500) + '... (truncated)'
+        : errorData
     });
     
-    // Если это 404, не логируем как критическую ошибку, так как это может быть временная проблема
-    if (result.error.status === 404) {
-      console.warn('⚠️ Возможные причины 404:');
+    // Дополнительные предупреждения для специфических ошибок
+    if (errorStatus === 404 || errorStatus === 'PARSING_ERROR') {
+      console.warn('⚠️ Возможные причины:');
       console.warn('  1. Сервер не запущен или не перезапущен после изменений');
       console.warn('  2. Маршруты не зарегистрированы правильно');
       console.warn('  3. Пользователь не существует в базе данных');
+      console.warn('  4. Сервер возвращает HTML страницу ошибки вместо JSON');
+    }
+    
+    // Нормализуем ошибку для RTK Query
+    if (errorStatus === 'PARSING_ERROR') {
+      result.error = {
+        ...result.error,
+        status: 500,
+        data: {
+          error: errorMessage,
+          originalStatus: 'PARSING_ERROR',
+          url: fullUrl
+        }
+      };
     }
   }
   
