@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FaTimes, FaHeart, FaCopy, FaCheck, FaMobileAlt, FaCreditCard } from "react-icons/fa";
-import donationQR from "../assets/qrdonate.jpeg";
+import donationQR from "../assets/qrdonate.svg";
+
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -10,9 +11,9 @@ interface DonationModalProps {
 const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose }) => {
   const [copiedMBank, setCopiedMBank] = useState(false);
   const [copiedCard, setCopiedCard] = useState(false);
-  const mbankNumberDisplay = "+996 XXX XXX XXX";
-  const mbankNumberCopy = "XXX XXX XXX"; // Без кода страны, так как в МБанке он уже есть
-  const cardNumber = "XXXX XXXX XXXX XXXX";
+  const mbankNumberDisplay = "+996 774 522 640";
+  const mbankNumberCopy = "774522640"; // Без кода страны, так как в МБанке он уже есть
+  const cardNumber = "4177 4901 9760 9011";
 
   const handleCopy = (text: string, type: 'mbank' | 'card') => {
     navigator.clipboard.writeText(text);
